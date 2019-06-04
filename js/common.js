@@ -1,312 +1,177 @@
-<!DOCTYPE html>
-<html>
-	<head>
-		<meta charset="utf-8"/>
-		<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-		<meta name="misapplication-tap-highlight" content="no"/>
-		<meta name="HandheldFriendly" content="true"/>
-		<meta name="MobileOptimized" content="320"/>
-		<title>Hello H5+</title>
-		<script type="text/javascript" src="js/update.js"></script>
-		<script type="text/javascript" charset="utf-8">
-//取消浏览器的所有事件，使得active的样式在手机上正常生效
-document.addEventListener('touchstart',function(){
-    return false;
-},true);
-// 禁止选择
-document.oncontextmenu=function(){
+(function(w){
+// 空函数
+function shield(){
 	return false;
-};
-// H5 plus事件处理
-function plusReady(){
-	// Android处理返回键
-	plus.key.addEventListener('backbutton',function(){
-		('iOS'==plus.os.name)?plus.nativeUI.confirm('确认退出？', function(e){
-			if(e.index>0){
-				plus.runtime.quit();
-			}
-		}, 'HelloH5', ['取消','确定']):(confirm('确认退出？')&&plus.runtime.quit());
-	},false);
-	// 关闭启动界面
-	plus.navigator.setStatusBarBackground('#D74B28');
-	setTimeout(function(){
-		plus.navigator.closeSplashscreen();
-	},200);
 }
-if(window.plus){
+document.addEventListener('touchstart', shield, false);//取消浏览器的所有事件，使得active的样式在手机上正常生效
+document.oncontextmenu=shield;//屏蔽选择函数
+// H5 plus事件处理
+var ws=null,as='pop-in';
+function plusReady(){
+	ws=plus.webview.currentWebview();
+	plus.key.addEventListener('backbutton', function(){
+		back();
+	},false);
+}
+if(w.plus){
 	plusReady();
 }else{
-	document.addEventListener('plusready',plusReady,false);
+	document.addEventListener('plusready', plusReady, false);
 }
+// DOMContentLoaded事件处理
+document.addEventListener('DOMContentLoaded', function(){
+	gInit();
+	document.body.onselectstart=shield;
+},false);
+// 返回
+w.back=function(hide){
+	if(w.plus){
+		ws||(ws=plus.webview.currentWebview());
+		(hide||ws.preate)?ws.hide('auto'):ws.close('auto');
+	}else if(history.length>1){
+		history.back();
+	}else{
+		w.close();
+	}
+};
 // 处理点击事件
-var _openw=null;
-var as='pop-in';// 默认窗口动画
+var openw=null;
 /**
  * 打开新窗口
- * @param {String} id	加载的页面地址，也用作窗口标识
- * @param {String} t    页面的标题
- * @param {String} d	文档页面文件名称（doc目录下），不传入则使用页面的标题
+ * @param {URIString} id : 要打开页面url
+ * @param {String} t : 页面标题名称
+ * @param {JSON} ws : Webview窗口属性
  */
-function clicked(id, t, d){
-	if(_openw){return;}  // 防止快速点击
-	var ws={
-		scrollIndicator: 'none',
-		scalable: false,
-		popGesture: 'close',
-		backButtonAutoControl: 'close',
-		titleNView: {
-			autoBackButton: true,
-			backgroundColor: '#D74B28',
-			titleColor: '#CCCCCC'
+w.clicked=function(id, t, ws){
+	if(openw){//避免多次打开同一个页面
+		return null;
+	}
+	if(w.plus){
+		ws=ws||{};
+		ws.scrollIndicator||(ws.scrollIndicator='none');
+		ws.scalable||(ws.scalable=false);
+		ws.backButtonAutoControl||(ws.backButtonAutoControl='close');
+		ws.titleNView=ws.titleNView||{autoBackButton:true};
+		ws.titleNView.backgroundColor = '#D74B28';
+		ws.titleNView.titleColor = '#CCCCCC';
+		ws.doc&&(ws.titleNView.buttons=ws.titleNView.buttons||[],ws.titleNView.buttons.push({fontSrc:'_www/helloh5.ttf',text:'\ue301',fontSize:'20px',onclick:'javascript:openDoc()'}));
+		t&&(ws.titleNView.titleText=t);
+		openw = plus.webview.create(id, id, ws);
+		openw.addEventListener('loaded', function(){
+			openw.show(as);
+		}, false);
+		openw.addEventListener('close', function(){
+			openw=null;
+		}, false);
+		return openw;
+	}else{
+		w.open(id);
+	}
+	return null;
+};
+/**
+ * 创建新窗口（无原始标题栏），
+ * @param {URIString} id : 要打开页面url
+ * @param {JSON} ws : Webview窗口属性
+ */
+w.createWithoutTitle=function(id, ws){
+	if(openw){//避免多次打开同一个页面
+		return null;
+	}
+	if(w.plus){
+		ws=ws||{};
+		ws.scrollIndicator||(ws.scrollIndicator='none');
+		ws.scalable||(ws.scalable=false);
+		ws.backButtonAutoControl||(ws.backButtonAutoControl='close');
+		openw = plus.webview.create(id, id, ws);
+		openw.addEventListener('close', function(){
+			openw=null;
+		}, false);
+		return openw;
+	}else{
+		w.open(id);
+	}
+	return null;
+};
+/**
+ * 打开文档页面
+ * @param {URIString} c : 要打开页面url
+ */
+w.openDoc=function(c){
+	plus.webview.create(c, 'document', {
+		titleNView:{
+			autoBackButton:true,
+			backgroundColor:'#D74B28',
+			titleColor:'#CCCCCC'
+		},
+		backButtonAutoControl:'close',
+		scalable:false
+	}).show('pop-in');
+};
+/**
+ * 兼容提示
+ */
+w.compatibleConfirm=function(){
+	plus.nativeUI.confirm('本OS原生层面不提供该控件，需使用mui框架实现类似效果。请点击“确定”下载Hello mui示例',function(e){
+		if(0==e.index){
+			plus.runtime.openURL("http://www.dcloud.io/hellomui/");
 		}
-	};
-	t&&(ws.titleNView.titleText=t,d||(d=t.toLowerCase()));
-	d&&(ws.titleNView.buttons=[{
-		fontSrc: '_www/helloh5.ttf',
-		text: '\ue301',
-		fontSize: '22px',
-		onclick: 'javascript:openDoc("/doc/'+d+'.html")'
-	}]);
-	_openw=plus.webview.create(id, id, ws);
-	_openw.addEventListener('loaded', function(){//页面加载完成后才显示
-		_openw&&_openw.show(as, null, function(){
-			_openw=null;//避免快速点击打开多个页面
-		});
-	}, false);
-	_openw.addEventListener('hide', function(){
-		_openw=null;
-	}, false);
-	_openw.addEventListener('close', function(){//页面关闭后可再次打开
-		_openw=null;
-	}, false);
+	},"",["确定","取消"]);
 }
-// 打开关于页面
-function openAbout(){
-	if(_openw){return;}  // 防止快速点击
-	_openw=plus.webview.create('about.html', 'about', {
-		scrollIndicator: 'none',
-		scalable: false,
-		popGesture: 'close',
-		backButtonAutoControl: 'close',
-		titleNView: {
-			autoBackButton: true,
-			backgroundColor: '#D74B28',
-			titleColor: '#CCCCCC',
-			titleText: '关于',
-			buttons: [{
-				type: 'share',
-				onclick: 'javascript:share()'
-			}]
-		}
-	});
-	_openw.addEventListener('close', function(){
-		_openw=null;
-	}, false);
-	_openw.show('zoom-fade-out');
-}
-		</script>
-		<link rel="stylesheet" href="css/common.css" type="text/css" charset="utf-8"/>
-		<style type="text/css">
-li {
-	padding:0.8em;
-	border-bottom:1px solid #eaeaea;
-}
-li:active {
-	background:#f4f4f4;
-}
-.item {
-	display:block;
-	background:no-repeat right center url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwEAYAAAAHkiXEAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAAAZiS0dEAAAAAAAA+UO7fwAAAAlwSFlzAAAASAAAAEgARslrPgAAAoRJREFUeNrt179L61AUwPFz0kZRh9BBB+kkxUGM0nNp/bGKFVFBwdI/wUEQHNxdOnXzHxBXBbUiFimi2KUQ0jgIOrVKhHbSDgaKRfOGPAvvPYSWp9xSzmcp6fTlHm7uDQBjjDHGGGOMMcYYY4wxCUI7oZ3QTnf3WGosNZbq65Pd89MU2QF/04paUStalvqgPqgPpRIREZEQsrt+StsNAHKQg5xtQx7ykO/vR0REvLgIr4XXwmtTU7Lzvlv7DQAAAFZW3HP33D3PZr1nTVNQQQWz2fBB+CB8MDMju7DjfZ4FVKEKVY6PhRBCCNf1fh1HkCBBsZjszv/lkx3wlefMc+Y58/4eiAaigejhoX/UP+ofHRlBE000x8chAhGIJBKDMAiDcHtbLpfL5fL9vezujhWPx+PxuM9Hj/RIj3t7f+6ItzdhCUtYq6uyOzve5yBEUiRFcnf3cxD0QR/0Ua+TSiqpiYTszo43aU/ak3ZPD13SJV3admMQp3RKp5Ylu69ZftkBrfIWure3vlxfri8fHSEgIASD3pngOLiAC7iwuSm7s1lteg39V+PLOAUpSJ2ceP/GYrAO67D++goGGGAsLZlooolXV7J7m9X2O8C7bmqaO+QOuUNnZ7AFW7A1PQ1RiEK0WnX33X13f36+YBbMgpnPy+5tFcoO+Iqu67quBwJdapfapWYygICAExOwARuw8fKibCvbyvbcnFEySkbJMGT3dgzvVTMwINIiLdI3N43D9Zqu6bpS8XaErsvu7FjegptmY+F/33IiT5GnyNPwsOy+79Z+Z8AszMJstQo1qEHt7k5xFEdxFheNoBE0gsWi7DzGGGOMMcYYY4wxxhhjjDHGWCt+AQ7J6F+fXYnsAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDE4LTEyLTA2VDExOjUxOjAyKzA4OjAwDV/r1QAAACV0RVh0ZGF0ZTptb2RpZnkAMjAxOC0xMi0wNlQxMTo1MTowMiswODowMHwCU2kAAABOdEVYdHN2ZzpiYXNlLXVyaQBmaWxlOi8vL2hvbWUvYWRtaW4vaWNvbi1mb250L3RtcC9pY29uX2huMGM5Ymp6cmRxL3NleS1Gb3J3YXJkLnN2Z+G1zWIAAAAASUVORK5CYII=);
-	background-size:24px 24px;
-	-ms-touch-action:auto;
-}
-.chs {
-	font-size:0.8em;
-	color:#838383;
-}
-		</style>
-	</head>
-	<body onselectstart="return false;">
-		<ul id="plist" style="list-style:none;margin:0;padding:0;text-align:left;">
-			<li id="plus/accelerometer.html" onclick="clicked(this.id, 'Accelerometer')">
-				<span class="item">Accelerometer
-					<div class="chs">加速度传感器</div>
-				</span>
-			</li>
-			<li id="plus/audio.html" onclick="clicked(this.id, 'Audio')">
-				<span class="item">Audio
-					<div class="chs">音频录制/播放</div>
-				</span>
-			</li>
-			<li id="plus/barcode.html" onclick="clicked(this.id, 'Barcode')">
-				<span class="item">Barcode
-					<div class="chs">二维码扫描</div>
-				</span>
-			</li>
-			<li id="plus/bluetooth.html" onclick="clicked(this.id, 'Bluetooth')">
-				<span class="item">Bluetooth
-					<div class="chs">蓝牙</div>
-				</span>
-			</li>
-			<li id="plus/camera.html" onclick="clicked(this.id, 'Camera')">
-				<span class="item">Camera
-					<div class="chs">摄像头拍照/录像</div>
-				</span>
-			</li>
-			<li id="plus/device.html" onclick="clicked(this.id, 'Device')">
-				<span class="item">Device
-					<div class="chs">设备信息</div>
-				</span>
-			</li>
-			<li id="plus/downloader.html" onclick="clicked(this.id, 'Downloader')">
-				<span class="item">Downloader
-					<div class="chs">下载管理</div>
-				</span>
-			</li>
-			<li id="plus/events.html" onclick="clicked(this.id, 'Events')">
-				<span class="item">Events
-					<div class="chs">系统事件</div>
-				</span>
-			</li>
-			<li id="plus/file.html" onclick="clicked(this.id, 'File System', 'io')">
-				<span class="item">File System
-					<div class="chs">文件系统</div>
-				</span>
-			</li>
-			<li id="plus/fingerprint.html" onclick="clicked(this.id, 'Fingerprint')">
-				<span class="item">Fingerprint
-					<div class="chs">指纹识别</div>
-				</span>
-			</li>
-			<li id="plus/gallery.html" onclick="clicked(this.id, 'Gallery')">
-				<span class="item">Gallery
-					<div class="chs">系统相册</div>
-				</span>
-			</li>
-			<li id="plus/geolocation.html" onclick="clicked(this.id, 'Geolocation')">
-				<span class="item">Geolocation
-					<div class="chs">地理定位</div>
-				</span>
-			</li>
-			<li id="plus/ibeacon.html" onclick="clicked(this.id, 'iBeacon')">
-				<span class="item">iBeacon
-					<div class="chs">低功耗蓝牙微定位</div>
-				</span>
-			</li>
-			<li id="plus/maps.html" onclick="clicked(this.id, 'Maps')">
-				<span class="item">Maps
-					<div class="chs">地图</div>
-				</span>
-			</li>
-			<li id="plus/message.html" onclick="clicked(this.id, 'Messaging')">
-				<span class="item">Messaging
-					<div class="chs">消息通讯</div>
-				</span>
-			</li>
-			<li id="plus/nativeobj.html" onclick="clicked(this.id, 'NativeObj')">
-				<span class="item">NativeObj
-					<div class="chs">原生对象</div>
-				</span>
-			</li>
-			<li id="plus/nativeui.html" onclick="clicked(this.id, 'NativeUI')">
-				<span class="item">NativeUI
-					<div class="chs">原生界面</div>
-				</span>
-			</li>
-			<li id="plus/navigator.html" onclick="clicked(this.id, 'Navigator')">
-				<span class="item">Navigator
-					<div class="chs">浏览器环境</div>
-				</span>
-			</li>
-			<li id="plus/oauth.html" onclick="clicked(this.id, 'OAuth')">
-				<span class="item">OAuth
-					<div class="chs">授权登录认证</div>
-				</span>
-			</li>
-			<li id="plus/orientation.html" onclick="clicked(this.id, 'Orientation')">
-				<span class="item">Orientation
-					<div class="chs">方向传感器</div>
-				</span>
-			</li>
-			<li id="plus/payment.html" onclick="clicked(this.id, 'Payment')">
-				<span class="item">Payment
-					<div class="chs">支付</div>
-				</span>
-			</li>
-			<li id="plus/proximity.html" onclick="clicked(this.id, 'Proximity')">
-				<span class="item">Proximity
-					<div class="chs">距离传感器</div>
-				</span>
-			</li>
-			<li id="plus/push.html" onclick="clicked(this.id, 'Push')">
-				<span class="item">Push
-					<div class="chs">消息推送</div>
-				</span>
-			</li>
-			<li id="plus/runtime.html" onclick="clicked(this.id, 'Runtime')">
-				<span class="item">Runtime
-					<div class="chs">运行环境</div>
-				</span>
-			</li>
-			<li id="plus/share.html" onclick="clicked(this.id, 'Share')">
-				<span class="item">Share
-					<div class="chs">分享</div>
-				</span>
-			</li>
-			<li id="plus/speech.html" onclick="clicked(this.id, 'Speech')">
-				<span class="item">Speech
-					<div class="chs">语音识别</div>
-				</span>
-			</li>
-			<li id="plus/sqlite.html" onclick="clicked(this.id, 'SQLite')">
-				<span class="item">SQLite
-					<div class="chs">数据库</div>
-				</span>
-			</li>
-			<li id="plus/statistic.html" onclick="clicked(this.id, 'Statistic')">
-				<span class="item">Statistic
-					<div class="chs">统计管理</div>
-				</span>
-			</li>
-			<li id="plus/storage.html" onclick="clicked(this.id, 'Storage')">
-				<span class="item">Storage
-					<div class="chs">本地数据存储</div>
-				</span>
-			</li>
-			<li id="plus/uploader.html" onclick="clicked(this.id, 'Uploader')">
-				<span class="item">Uploader
-					<div class="chs">上传管理</div>
-				</span>
-			</li>
-			<li id="plus/video.html" onclick="clicked(this.id, 'Video')">
-				<span class="item">Video
-					<div class="chs">视频多媒体</div>
-				</span>
-			</li>
-			<li id="plus/webview.html" onclick="clicked(this.id, 'Webview')">
-				<span class="item">Webview
-					<div class="chs">窗口管理</div>
-				</span>
-			</li>
-			<li id="plus/xhr.html" onclick="clicked(this.id, 'XMLHttpRequest', 'xhr')">
-				<span class="item">XMLHttpRequest
-					<div class="chs">跨域请求</div>
-				</span>
-			</li>
-			<li id="plus/zip.html" onclick="clicked(this.id, 'ZIP')">
-				<span class="item">ZIP
-					<div class="chs">文件压缩/解压</div>
-				</span>
-			</li>
-			<li id="plus/njs.html" onclick="clicked(this.id, 'Native.JS')">
-				<span class="item">Native.JS
-					<div class="chs">JS调用原生代码</div>
-				</span>
-			</li>
-		</ul>
-	</body>
-	<script type="text/javascript" src="js/shortcut.js" ></script>
-	<script type="text/javascript">
+// 通用元素对象
+var _dout_=null;
+w.gInit=function(){
+	_dout_=document.getElementById("output");
+};
+// 清空输出内容
+w.outClean=function(){
+	_dout_.innerText="";
+	_dout_.scrollTop=0;//在iOS8存在不滚动的现象
+};
+// 输出内容
+w.outSet=function(s){
+	console.log(s);
+	_dout_.innerText=s+"\n";
+	(0==_dout_.scrollTop)&&(_dout_.scrollTop=1);//在iOS8存在不滚动的现象
+};
+// 输出行内容
+w.outLine=function(s){
+	console.log(s);
+	_dout_.innerText+=s+"\n";
+	(0==_dout_.scrollTop)&&(_dout_.scrollTop=1);//在iOS8存在不滚动的现象
+};
+// 格式化时长字符串，格式为"HH:MM:SS"
+w.timeToStr=function(ts){
+	if(isNaN(ts)){
+		return "--:--:--";
+	}
+	var h=parseInt(ts/3600);
+	var m=parseInt((ts%3600)/60);
+	var s=parseInt(ts%60);
+	return (ultZeroize(h)+":"+ultZeroize(m)+":"+ultZeroize(s));
+};
+// 格式化日期时间字符串，格式为"YYYY-MM-DD HH:MM:SS"
+w.dateToStr=function(d){
+	return (d.getFullYear()+"-"+ultZeroize(d.getMonth()+1)+"-"+ultZeroize(d.getDate())+" "+ultZeroize(d.getHours())+":"+ultZeroize(d.getMinutes())+":"+ultZeroize(d.getSeconds()));
+};
+/**
+ * zeroize value with length(default is 2).
+ * @param {Object} v
+ * @param {Number} l
+ * @return {String} 
+ */
+w.ultZeroize=function(v,l){
+	var z="";
+	l=l||2;
+	v=String(v);
+	for(var i=0;i<l-v.length;i++){
+		z+="0";
+	}
+	return z+v;
+};
+})(window);
+
+// fast click 
 ;(function () {
 	'use strict';
 
@@ -1153,5 +1018,3 @@ document.addEventListener('DOMContentLoaded', function() {
 }, false);
 
 }());
-	</script>
-</html>
